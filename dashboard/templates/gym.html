@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Gym History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>🏋️ Gym History</h2>
+    <span class="text-muted">{{ sessions | length }} session{{ 's' if sessions | length != 1 }}</span>
+</div>
+
+<!-- Muscle Group Filter -->
+{% if all_muscles %}
+<div class="mb-4">
+    <a href="/gym" class="btn btn-sm {% if not muscle_group %}btn-primary{% else %}btn-outline-secondary{% endif %} filter-btn">All</a>
+    {% for mg in all_muscles %}
+        <a href="/gym?muscle_group={{ mg }}"
+           class="btn btn-sm {% if muscle_group == mg %}btn-primary{% else %}btn-outline-secondary{% endif %} filter-btn">
+            {{ mg }}
+        </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Sessions -->
+{% for s in sessions %}
+<div class="card mb-3 session-card" data-bs-toggle="collapse" data-bs-target="#session-{{ s.id }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <strong>{{ s.name }}</strong>
+            <span class="text-muted ms-2">{{ s.date }}{% if s.time %} {{ s.time }}{% endif %}</span>
+        </div>
+        <div class="d-flex gap-2">
+            {% if s.duration_min %}
+                <span class="badge bg-dark border">{{ s.duration_min }} min</span>
+            {% endif %}
+            {% if s.volume_lb %}
+                <span class="badge bg-dark border">{{ "{:,.0f}".format(s.volume_lb) }} lb</span>
+            {% endif %}
+            {% if s.calories %}
+                <span class="badge bg-dark border">{{ s.calories }} cal</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="collapse" id="session-{{ s.id }}">
+        <div class="collapse-body">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr><th>#</th><th>Exercise</th><th>Muscles</th><th>Equipment</th><th>Sets</th></tr>
+                </thead>
+                <tbody>
+                {% for ex in s.exercises %}
+                    <tr class="exercise-row">
+                        <td>{{ loop.index }}</td>
+                        <td><a href="/gym/exercise/{{ ex.name | urlencode }}">{{ ex.name }}</a></td>
+                        <td>
+                            {% for mg in (ex.muscle_groups or '').split(',') %}
+                                {% if mg.strip() %}
+                                    <span class="badge badge-muscle">{{ mg.strip() }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>{{ ex.equipment or '—' }}</td>
+                        <td><small>{{ ex.sets_summary or '—' }}</small></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% if s.source_url %}
+                <div class="mt-2">
+                    <a href="{{ s.source_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">View on Motra →</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% if not sessions %}
+<div class="text-center py-5 text-muted">
+    <h4>No gym sessions found{% if muscle_group %} for "{{ muscle_group }}"{% endif %}</h4>
+    <p>Import workouts with: <code>python scripts/import_gym.py workout.txt</code></p>
+</div>
+{% endif %}
+
+{% if exercise_names %}
+<div class="card mt-4">
+    <div class="card-header">📈 Exercise Progression Links</div>
+    <div class="card-body">
+        {% for name in exercise_names %}
+            <a href="/gym/exercise/{{ name | urlencode }}" class="btn btn-sm btn-outline-secondary filter-btn">{{ name }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

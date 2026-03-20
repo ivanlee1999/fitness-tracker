@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Recovery{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">💓 Recovery & Daily Metrics</h2>
+
+{% if metrics %}
+<div class="row g-4">
+    <!-- HRV Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">HRV (ms)</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="hrvChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resting HR -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Resting Heart Rate</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="restingHrChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Body Battery -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Body Battery</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="bodyBatteryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sleep -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Sleep Duration & Score</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="sleepChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Readiness -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Training Readiness</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="readinessChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stress -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Average Stress</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="stressChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mt-4">
+    <div class="card-header">Raw Data</div>
+    <div class="card-body p-0" style="overflow-x: auto;">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th><th>RHR</th><th>HRV</th><th>BB Wake</th>
+                    <th>Sleep</th><th>Score</th><th>Deep</th><th>REM</th>
+                    <th>Steps</th><th>Stress</th><th>Readiness</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in metrics | reverse %}
+                <tr>
+                    <td>{{ m.date }}</td>
+                    <td>{{ m.resting_hr or '—' }}</td>
+                    <td>{{ m.hrv_ms or '—' }}</td>
+                    <td>{{ m.body_battery_wake or '—' }}</td>
+                    <td>{% if m.sleep_duration_min %}{{ "%.0f"|format(m.sleep_duration_min / 60) }}h {{ (m.sleep_duration_min % 60)|int }}m{% else %}—{% endif %}</td>
+                    <td>{{ m.sleep_score or '—' }}</td>
+                    <td>{% if m.sleep_deep_min %}{{ m.sleep_deep_min|int }}m{% else %}—{% endif %}</td>
+                    <td>{% if m.sleep_rem_min %}{{ m.sleep_rem_min|int }}m{% else %}—{% endif %}</td>
+                    <td>{{ "{:,}".format(m.steps) if m.steps else '—' }}</td>
+                    <td>{{ m.stress_avg or '—' }}</td>
+                    <td>{{ m.training_readiness_score or '—' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <h4>No daily metrics found</h4>
+    <p>Import Garmin daily summaries with: <code>python scripts/import_daily_metrics.py metrics.json</code></p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if metrics %}
+<script>
+const metrics = {{ metrics | tojson }};
+const labels = metrics.map(m => m.date);
+
+const mkOpts = (title) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#c9d1d9' } } },
+    scales: {
+        x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+        y: { title: { display: true, text: title, color: '#8b949e' }, ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }
+    }
+});
+
+// HRV
+new Chart(document.getElementById('hrvChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [
+            { label: 'HRV', data: metrics.map(m => m.hrv_ms), borderColor: '#7c4dff', backgroundColor: 'rgba(124,77,255,0.1)', fill: true, tension: 0.3, pointRadius: 3 },
+            { label: 'Baseline', data: metrics.map(m => m.hrv_baseline_ms), borderColor: '#8b949e', borderDash: [5,5], fill: false, tension: 0.3, pointRadius: 0 }
+        ]
+    },
+    options: mkOpts('ms')
+});
+
+// Resting HR
+new Chart(document.getElementById('restingHrChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{ label: 'Resting HR', data: metrics.map(m => m.resting_hr), borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 3 }]
+    },
+    options: mkOpts('bpm')
+});
+
+// Body Battery
+new Chart(document.getElementById('bodyBatteryChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [
+            { label: 'Wake', data: metrics.map(m => m.body_battery_wake), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 3 },
+            { label: 'Sleep', data: metrics.map(m => m.body_battery_sleep), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 3 }
+        ]
+    },
+    options: { ...mkOpts('Level'), scales: { ...mkOpts('Level').scales, y: { ...mkOpts('Level').scales.y, min: 0, max: 100 } } }
+});
+
+// Sleep
+new Chart(document.getElementById('sleepChart'), {
+    type: 'bar',
+    data: {
+        labels,
+        datasets: [
+            { label: 'Deep (min)', data: metrics.map(m => m.sleep_deep_min), backgroundColor: 'rgba(124,77,255,0.7)' },
+            { label: 'REM (min)', data: metrics.map(m => m.sleep_rem_min), backgroundColor: 'rgba(88,166,255,0.7)' },
+            { label: 'Score', data: metrics.map(m => m.sleep_score), type: 'line', borderColor: '#3fb950', fill: false, tension: 0.3, pointRadius: 3, yAxisID: 'y1' }
+        ]
+    },
+    options: {
+        ...mkOpts('Minutes'),
+        scales: {
+            ...mkOpts('Minutes').scales,
+            y1: { position: 'right', title: { display: true, text: 'Score', color: '#8b949e' }, ticks: { color: '#8b949e' }, grid: { drawOnChartArea: false }, min: 0, max: 100 }
+        }
+    }
+});
+
+// Readiness
+new Chart(document.getElementById('readinessChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{ label: 'Training Readiness', data: metrics.map(m => m.training_readiness_score), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 3 }]
+    },
+    options: mkOpts('Score')
+});
+
+// Stress
+new Chart(document.getElementById('stressChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{ label: 'Avg Stress', data: metrics.map(m => m.stress_avg), borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 3 }]
+    },
+    options: mkOpts('Stress Level')
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Training Advice{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">💡 Training Advice</h2>
+<p class="text-muted mb-4">
+    Based on your last {{ days_analyzed }} days of data &middot;
+    {{ gym_count }} gym sessions &middot;
+    {{ cardio_count }} cardio sessions
+</p>
+
+{% for s in suggestions %}
+<div class="alert alert-{{ s.level }} d-flex align-items-start mb-3">
+    <span class="me-3" style="font-size: 1.5rem;">{{ s.icon }}</span>
+    <div>
+        <strong>{{ s.category }}</strong>
+        <p class="mb-0 mt-1">{{ s.message }}</p>
+    </div>
+</div>
+{% endfor %}
+
+{% if not suggestions %}
+<div class="text-center py-5 text-muted">
+    <h4>Not enough data yet</h4>
+    <p>Import more workouts and metrics to get personalized advice.</p>
+</div>
+{% endif %}
+
+<div class="card mt-4">
+    <div class="card-header">📚 General Guidelines</div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li><strong>Strength:</strong> 3-5 gym sessions per week, progressive overload, hit each muscle group 2x/week</li>
+            <li><strong>Cardio:</strong> 150+ min moderate or 75+ min vigorous per week (AHA guidelines)</li>
+            <li><strong>Recovery:</strong> 7-9 hours sleep, monitor HRV trends, take rest days when body battery is low</li>
+            <li><strong>Nutrition:</strong> 1.6-2.2g protein per kg bodyweight for muscle growth</li>
+            <li><strong>ACWR:</strong> Keep acute:chronic workload ratio between 0.8-1.3 to minimize injury risk</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

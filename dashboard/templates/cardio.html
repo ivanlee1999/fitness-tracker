@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Cardio History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>🏃 Cardio History</h2>
+    <span class="text-muted">{{ sessions | length }} session{{ 's' if sessions | length != 1 }}</span>
+</div>
+
+<!-- Activity Type Filter -->
+{% if activity_types %}
+<div class="mb-4">
+    <a href="/cardio" class="btn btn-sm {% if not activity_type %}btn-primary{% else %}btn-outline-secondary{% endif %} filter-btn">All</a>
+    {% for at in activity_types %}
+        <a href="/cardio?activity_type={{ at }}"
+           class="btn btn-sm {% if activity_type == at %}btn-primary{% else %}btn-outline-secondary{% endif %} filter-btn">
+            {{ at | capitalize }}
+        </a>
+    {% endfor %}
+</div>
+
+<!-- Trend Links -->
+<div class="mb-4">
+    <span class="text-muted me-2">Trends:</span>
+    {% for at in activity_types %}
+        <a href="/cardio/{{ at }}" class="btn btn-sm btn-outline-primary filter-btn">📈 {{ at | capitalize }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Sessions Table -->
+{% if sessions %}
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Activity</th>
+                    <th>Name</th>
+                    <th>Duration</th>
+                    <th>Distance</th>
+                    <th>Pace</th>
+                    <th>Avg HR</th>
+                    <th>Calories</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in sessions %}
+                <tr class="exercise-row">
+                    <td>{{ s.date }}</td>
+                    <td><span class="badge bg-dark border">{{ s.activity_type }}</span></td>
+                    <td>{{ s.name or '—' }}</td>
+                    <td>{{ format_duration(s.duration_seconds) }}</td>
+                    <td>{% if s.distance_meters %}{{ "%.2f"|format(s.distance_meters / 1000) }} km{% else %}—{% endif %}</td>
+                    <td>{{ format_pace(s.avg_speed_mps) }}</td>
+                    <td>{% if s.avg_hr_bpm %}{{ s.avg_hr_bpm }} bpm{% else %}—{% endif %}</td>
+                    <td>{{ s.calories or '—' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <h4>No cardio sessions found{% if activity_type %} for "{{ activity_type }}"{% endif %}</h4>
+    <p>Import Garmin activities with: <code>python scripts/import_garmin.py activity.json</code></p>
+</div>
+{% endif %}
+{% endblock %}

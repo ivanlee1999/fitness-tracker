@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}{{ activity_type | capitalize }} Trends{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/cardio">Cardio</a></li>
+        <li class="breadcrumb-item active">{{ activity_type | capitalize }} Trends</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">📈 {{ activity_type | capitalize }} Trends</h2>
+
+{% if sessions %}
+<div class="row g-4 mb-4">
+    <!-- Pace / Speed Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Pace Over Time</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="paceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HR Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Average Heart Rate</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="hrChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Distance Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Distance Per Session</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="distanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if sessions[0].avg_power_watts %}
+    <!-- Power Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Average Power</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="powerChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Sessions Table -->
+<div class="card">
+    <div class="card-header">All {{ activity_type | capitalize }} Sessions</div>
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr><th>Date</th><th>Name</th><th>Duration</th><th>Distance</th><th>Avg HR</th><th>Calories</th></tr>
+            </thead>
+            <tbody>
+            {% for s in sessions %}
+                <tr><td>{{ s.date }}</td><td>{{ s.name or '—' }}</td>
+                    <td>{{ format_duration(s.duration_seconds) }}</td>
+                    <td>{% if s.distance_meters %}{{ "%.2f"|format(s.distance_meters / 1000) }} km{% else %}—{% endif %}</td>
+                    <td>{{ s.avg_hr_bpm or '—' }}</td><td>{{ s.calories or '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <h4>No {{ activity_type }} sessions found</h4>
+    <a href="/cardio" class="btn btn-outline-primary">← Back to Cardio</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if sessions %}
+<script>
+const sessions = {{ sessions | tojson }};
+const labels = sessions.map(s => s.date);
+const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#c9d1d9' } } },
+    scales: {
+        x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }
+    }
+};
+
+// Pace (convert m/s to min/km)
+new Chart(document.getElementById('paceChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{
+            label: 'Pace (min/km)',
+            data: sessions.map(s => s.avg_speed_mps ? (1000 / s.avg_speed_mps / 60).toFixed(2) : null),
+            borderColor: '#7c4dff', backgroundColor: 'rgba(124,77,255,0.1)',
+            fill: true, tension: 0.3, pointRadius: 4
+        }]
+    },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, reverse: true, title: { display: true, text: 'min/km', color: '#8b949e' } } } }
+});
+
+// HR
+new Chart(document.getElementById('hrChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{
+            label: 'Avg HR (bpm)',
+            data: sessions.map(s => s.avg_hr_bpm),
+            borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)',
+            fill: true, tension: 0.3, pointRadius: 4
+        }]
+    },
+    options: chartDefaults
+});
+
+// Distance
+new Chart(document.getElementById('distanceChart'), {
+    type: 'bar',
+    data: {
+        labels,
+        datasets: [{
+            label: 'Distance (km)',
+            data: sessions.map(s => s.distance_meters ? (s.distance_meters / 1000).toFixed(2) : 0),
+            backgroundColor: 'rgba(63,185,80,0.6)', borderColor: '#3fb950', borderWidth: 1
+        }]
+    },
+    options: chartDefaults
+});
+
+// Power
+const powerCanvas = document.getElementById('powerChart');
+if (powerCanvas) {
+    new Chart(powerCanvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Avg Power (W)',
+                data: sessions.map(s => s.avg_power_watts),
+                borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)',
+                fill: true, tension: 0.3, pointRadius: 4
+            }]
+        },
+        options: chartDefaults
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}{{ name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/gym">Gym</a></li>
+        <li class="breadcrumb-item active">{{ name }}</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">📈 {{ name }}</h2>
+
+{% if progression %}
+<!-- Progression Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        {% if is_assisted %}
+            Assist Weight Over Time <small class="text-muted">(lower = stronger)</small>
+        {% else %}
+            Top Set Weight Over Time
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="chart-container">
+            <canvas id="progressionChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed History -->
+<div class="card">
+    <div class="card-header">Set History</div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Set #</th>
+                    <th>Type</th>
+                    <th>Reps</th>
+                    <th>Weight (lb)</th>
+                    {% if is_assisted %}<th>Assist (lb)</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+            {% set prev_date = namespace(val='') %}
+            {% for d in detailed %}
+                <tr class="exercise-row">
+                    <td>
+                        {% if d.date != prev_date.val %}
+                            <strong>{{ d.date }}</strong>
+                            {% set prev_date.val = d.date %}
+                        {% endif %}
+                    </td>
+                    <td>{{ d.set_number }}</td>
+                    <td><span class="badge {% if d.set_type == 'warmup' %}bg-secondary{% elif d.set_type == 'working' %}bg-primary{% else %}bg-warning{% endif %}">{{ d.set_type }}</span></td>
+                    <td>{{ d.reps }}</td>
+                    <td>{{ d.weight_lb or '—' }}</td>
+                    {% if is_assisted %}<td>{{ d.assist_lb or '—' }}</td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <h4>No data found for "{{ name }}"</h4>
+    <a href="/gym" class="btn btn-outline-primary">← Back to Gym</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if progression %}
+<script>
+const ctx = document.getElementById('progressionChart').getContext('2d');
+const data = {{ progression | tojson }};
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: data.map(d => d.date),
+        datasets: [
+            {
+                label: '{{ "Assist (lb)" if is_assisted else "Top Set Weight (lb)" }}',
+                data: data.map(d => {{ "d.min_assist_lb" if is_assisted else "d.top_set_weight_lb" }}),
+                borderColor: '#7c4dff',
+                backgroundColor: 'rgba(124, 77, 255, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+            },
+            {% if not is_assisted %}
+            {
+                label: 'Top Set Reps',
+                data: data.map(d => d.top_set_reps),
+                borderColor: '#3fb950',
+                backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                yAxisID: 'y1',
+            }
+            {% endif %}
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#c9d1d9' } }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#8b949e' },
+                grid: { color: '#21262d' }
+            },
+            y: {
+                title: { display: true, text: '{{ "Assist (lb)" if is_assisted else "Weight (lb)" }}', color: '#8b949e' },
+                ticks: { color: '#8b949e' },
+                grid: { color: '#21262d' },
+                {% if is_assisted %}reverse: true,{% endif %}
+            },
+            {% if not is_assisted %}
+            y1: {
+                position: 'right',
+                title: { display: true, text: 'Reps', color: '#8b949e' },
+                ticks: { color: '#8b949e' },
+                grid: { drawOnChartArea: false },
+            }
+            {% endif %}
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

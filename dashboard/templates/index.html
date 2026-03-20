@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">📊 Today's Summary <small class="text-muted">{{ today }}</small></h2>
+
+<!-- Quick Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ gym_count_week }}</div>
+            <div class="stat-label">Gym This Week</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ cardio_count_week }}</div>
+            <div class="stat-label">Cardio This Week</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            {% if todays_metrics and todays_metrics.steps %}
+                <div class="stat-value">{{ "{:,}".format(todays_metrics.steps) }}</div>
+            {% elif recent_metrics and recent_metrics.steps %}
+                <div class="stat-value">{{ "{:,}".format(recent_metrics.steps) }}</div>
+            {% else %}
+                <div class="stat-value">—</div>
+            {% endif %}
+            <div class="stat-label">Steps</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            {% if todays_metrics and todays_metrics.body_battery_wake %}
+                <div class="stat-value">{{ todays_metrics.body_battery_wake }}</div>
+            {% elif recent_metrics and recent_metrics.body_battery_wake %}
+                <div class="stat-value">{{ recent_metrics.body_battery_wake }}</div>
+            {% else %}
+                <div class="stat-value">—</div>
+            {% endif %}
+            <div class="stat-label">Body Battery</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Last Gym Workout -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">🏋️ Last Gym Workout</div>
+            <div class="card-body">
+                {% if last_gym %}
+                    <h5>{{ last_gym.name }}</h5>
+                    <p class="text-muted mb-2">
+                        {{ last_gym.date }}
+                        {% if last_gym.time %} at {{ last_gym.time }}{% endif %}
+                        {% if last_gym.duration_min %} &middot; {{ last_gym.duration_min }} min{% endif %}
+                    </p>
+                    <div class="d-flex gap-3 mb-3">
+                        {% if last_gym.volume_lb %}
+                            <span class="badge bg-dark border">{{ "{:,.0f}".format(last_gym.volume_lb) }} lb volume</span>
+                        {% endif %}
+                        {% if last_gym.calories %}
+                            <span class="badge bg-dark border">{{ last_gym.calories }} cal</span>
+                        {% endif %}
+                    </div>
+                    <table class="table table-sm">
+                        <thead><tr><th>Exercise</th><th>Sets</th></tr></thead>
+                        <tbody>
+                        {% for ex in last_gym_exercises %}
+                            <tr>
+                                <td>
+                                    <a href="/gym/exercise/{{ ex.name | urlencode }}">{{ ex.name }}</a>
+                                    {% if ex.muscle_groups %}
+                                        <br><small class="text-muted">{{ ex.muscle_groups }}</small>
+                                    {% endif %}
+                                </td>
+                                <td><small>{{ ex.sets_summary or '—' }}</small></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if last_gym.source_url %}
+                        <a href="{{ last_gym.source_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">View on Motra →</a>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">No gym sessions logged yet.</p>
+                    <p>Import a workout with: <code>python scripts/import_gym.py workout.txt</code></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Last Cardio / Metrics -->
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">🏃 Last Cardio</div>
+            <div class="card-body">
+                {% if last_cardio %}
+                    <h5>{{ last_cardio.name or last_cardio.activity_type }}</h5>
+                    <p class="text-muted mb-2">
+                        {{ last_cardio.date }}
+                        {% if last_cardio.time %} at {{ last_cardio.time }}{% endif %}
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% if last_cardio.duration_seconds %}
+                            <span class="badge bg-dark border">{{ format_duration(last_cardio.duration_seconds) }}</span>
+                        {% endif %}
+                        {% if last_cardio.distance_meters %}
+                            <span class="badge bg-dark border">{{ "%.2f"|format(last_cardio.distance_meters / 1000) }} km</span>
+                        {% endif %}
+                        {% if last_cardio.avg_hr_bpm %}
+                            <span class="badge bg-dark border">{{ last_cardio.avg_hr_bpm }} bpm avg</span>
+                        {% endif %}
+                        {% if last_cardio.avg_speed_mps %}
+                            <span class="badge bg-dark border">{{ format_pace(last_cardio.avg_speed_mps) }} pace</span>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">No cardio sessions logged yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">💓 Recovery Snapshot</div>
+            <div class="card-body">
+                {% set m = todays_metrics or recent_metrics %}
+                {% if m %}
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="fw-bold" style="color: var(--accent)">{{ m.resting_hr or '—' }}</div>
+                            <small class="text-muted">Resting HR</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold" style="color: var(--accent)">{{ m.hrv_ms or '—' }}</div>
+                            <small class="text-muted">HRV (ms)</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold" style="color: var(--accent)">{{ m.sleep_score or '—' }}</div>
+                            <small class="text-muted">Sleep Score</small>
+                        </div>
+                    </div>
+                    {% if m.date != today %}
+                        <p class="text-muted mt-2 mb-0"><small>Latest data from {{ m.date }}</small></p>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">No metrics imported yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
