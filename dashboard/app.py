@@ -11,6 +11,7 @@ Routes:
     /advice                 Rule-based suggestions
 """
 
+import os
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -23,7 +24,8 @@ from fastapi.templating import Jinja2Templates
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "fitness.db"
+# Use FITNESS_DB_PATH env var when set (for Docker), otherwise default to local path
+DB_PATH = Path(os.environ.get('FITNESS_DB_PATH', BASE_DIR / "fitness.db"))
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 

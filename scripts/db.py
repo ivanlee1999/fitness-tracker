@@ -5,7 +5,8 @@ import sqlite3
 from pathlib import Path
 
 DB_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = DB_DIR / "fitness.db"
+# Use FITNESS_DB_PATH env var when set (for Docker), otherwise default to local path
+DB_PATH = Path(os.environ.get('FITNESS_DB_PATH', DB_DIR / "fitness.db"))
 SCHEMA_PATH = DB_DIR / "schema.sql"
 
 
