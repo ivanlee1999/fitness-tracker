@@ -13,4 +13,4 @@ print('Database ready.')
 "
 
 echo "Starting Fitness Tracker dashboard at http://localhost:8090"
-exec uvicorn dashboard.app:app --host 0.0.0.0 --port 8090 --reload
+exec uvicorn dashboard.app:app --host 0.0.0.0 --port 8091 --reload
