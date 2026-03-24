@@ -203,7 +203,8 @@ def _fetch_daily_metrics_for_date(garmin, date_str: str) -> dict | None:
         if sleep_data:
             daily = sleep_data.get("dailySleepDTO", {})
             if daily:
-                dur_s = daily.get("sleepTimeInSeconds")
+                # Garmin API returns "sleepTimeSeconds" (not "sleepTimeInSeconds")
+                dur_s = daily.get("sleepTimeSeconds") or daily.get("sleepTimeInSeconds")
                 if dur_s:
                     metrics["sleepDurationMin"] = round(dur_s / 60, 1)
                     has_data = True
@@ -213,8 +214,13 @@ def _fetch_daily_metrics_for_date(garmin, date_str: str) -> dict | None:
                     metrics["sleepRemMin"] = round(daily["remSleepSeconds"] / 60, 1)
                 if daily.get("averageSpO2Value"):
                     metrics["sleepSpo2Avg"] = daily["averageSpO2Value"]
-                if daily.get("overallSleepScore", {}).get("value"):
-                    metrics["sleepScore"] = daily["overallSleepScore"]["value"]
+                # Sleep score is nested under sleepScores.overall.value
+                sleep_score = (
+                    daily.get("sleepScores", {}).get("overall", {}).get("value")
+                    or daily.get("overallSleepScore", {}).get("value")
+                )
+                if sleep_score:
+                    metrics["sleepScore"] = sleep_score
     except Exception:
         pass
 
