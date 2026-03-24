@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Running Analysis{% endblock %}
+{% block page_title %}AI Analysis{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/cardio">Cardio</a></li>
+    <li class="breadcrumb-item"><a href="/running/economy">Run Economy</a></li>
+    <li class="breadcrumb-item active">AI Analysis</li>
+  </ol>
+</nav>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h2 class="mb-0">🤖 AI Running Analysis</h2>
+  <form method="get" action="/running/analysis" class="d-flex gap-2 align-items-center ms-auto">
+    <select name="runs" class="form-select form-select-sm" style="width:auto">
+      <option value="5"  {% if run_count==5  %}selected{% endif %}>Last 5 runs</option>
+      <option value="10" {% if run_count==10 %}selected{% endif %}>Last 10 runs</option>
+      <option value="20" {% if run_count==20 %}selected{% endif %}>Last 20 runs</option>
+      <option value="all" {% if run_count=='all' %}selected{% endif %}>All runs</option>
+    </select>
+    <button class="btn btn-sm btn-primary" type="submit">Analyze ✨</button>
+  </form>
+</div>
+
+{% if loading %}
+<div class="card"><div class="card-body text-center py-5">
+  <div class="spinner-border text-primary mb-3"></div>
+  <p class="text-dim">Analyzing your runs with Claude...</p>
+</div></div>
+{% endif %}
+
+{% if analysis %}
+<!-- AI Analysis Card -->
+<div class="card mb-4 border-0" style="background: linear-gradient(135deg, #1a1f2e 0%, #161b22 100%); border-left: 3px solid #7c4dff !important; border-left-width: 3px !important;">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span style="font-size:1.3rem">🤖</span>
+      <span class="fw-bold">Claude's Analysis</span>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        {% if cached %}
+          <span class="badge bg-success" style="font-size:.7rem" title="Loaded from cache — no API call made">✓ cached · {{ analysis_date }}</span>
+          <a href="/running/analysis?runs={{ run_count }}&refresh=1" class="btn btn-sm btn-outline-secondary" title="Force regenerate with Claude">↻ Refresh</a>
+        {% else %}
+          <span class="badge bg-primary" style="font-size:.7rem">✨ just generated · {{ analysis_date }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="analysis-content" style="line-height:1.8; color:#e6edf3;">
+      {{ analysis | safe }}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stats grid -->
+{% if sessions %}
+<div class="row g-3 mb-4">
+  {% set runs = sessions | selectattr('avg_speed_mps') | list %}
+  {% if runs %}
+  {% set best_pace = runs | sort(attribute='avg_speed_mps', reverse=true) | first %}
+  {% set best_vo2 = runs | selectattr('vo2_max') | sort(attribute='vo2_max', reverse=true) | first %}
+  {% set best_cadence = runs | selectattr('avg_cadence') | sort(attribute='avg_cadence', reverse=true) | first %}
+  {% set best_gct = runs | selectattr('avg_ground_contact_time_ms') | sort(attribute='avg_ground_contact_time_ms') | first %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div class="text-secondary small">🏅 Best Pace</div>
+      <div class="fw-bold fs-5">{{ format_pace(best_pace.avg_speed_mps) }}</div>
+      <div class="text-dim" style="font-size:.75rem">{{ best_pace.date }} · {{ best_pace.name or '' }}</div>
+    </div>
+  </div>
+  {% if best_vo2 %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div class="text-secondary small">❤️ Best VO₂ Max</div>
+      <div class="fw-bold fs-5">{{ "%.0f"|format(best_vo2.vo2_max) }}</div>
+      <div class="text-dim" style="font-size:.75rem">{{ best_vo2.date }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if best_cadence %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div class="text-secondary small">⚡ Best Cadence</div>
+      <div class="fw-bold fs-5">{{ "%.0f"|format(best_cadence.avg_cadence) }} spm</div>
+      <div class="text-dim" style="font-size:.75rem">{{ best_cadence.date }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if best_gct %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div class="text-secondary small">🎯 Best GCT</div>
+      <div class="fw-bold fs-5">{{ "%.0f"|format(best_gct.avg_ground_contact_time_ms) }} ms</div>
+      <div class="text-dim" style="font-size:.75rem">{{ best_gct.date }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<!-- Full metrics table -->
+<div class="card">
+  <div class="card-header">📊 Full Metrics — All {{ sessions | length }} Runs</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-sm mb-0" style="font-size:.82rem">
+      <thead>
+        <tr>
+          <th>Date</th><th>Name</th><th>Dist</th><th>Pace</th><th>GAP</th>
+          <th>HR</th><th>Cadence</th><th>Stride</th><th>GCT</th>
+          <th>V.Osc</th><th>V.Ratio</th><th>L/R Bal</th>
+          <th>Spd Loss</th><th>Stamina</th>
+          <th>VO₂</th><th>Power</th><th>Load</th>
+          <th>Feel</th><th>RPE</th><th>Comply</th>
+          <th>Steps</th><th>BB Δ</th><th>1km</th><th>5km</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in sessions | reverse %}
+        <tr>
+          <td class="text-nowrap">{{ s.date }}</td>
+          <td class="text-nowrap" style="max-width:120px;overflow:hidden;text-overflow:ellipsis" title="{{ s.name or '' }}">{{ s.name or '—' }}</td>
+          <td class="text-nowrap">{% if s.distance_meters %}{{ "%.1f"|format(s.distance_meters/1000) }}k{% else %}—{% endif %}</td>
+          <td class="text-nowrap">{{ format_pace(s.avg_speed_mps) }}</td>
+          <td class="text-nowrap">{{ format_pace(s.avg_grade_adjusted_speed_mps) }}</td>
+          <td>{{ s.avg_hr_bpm or '—' }}</td>
+          <td>{% if s.avg_cadence %}{{ "%.0f"|format(s.avg_cadence) }}{% else %}—{% endif %}</td>
+          <td>{% if s.avg_stride_length_cm %}{{ "%.2f"|format(s.avg_stride_length_cm/100) }}m{% else %}—{% endif %}</td>
+          <td>{% if s.avg_ground_contact_time_ms %}{{ "%.0f"|format(s.avg_ground_contact_time_ms) }}ms{% else %}—{% endif %}</td>
+          <td>{% if s.avg_vertical_oscillation_cm %}{{ "%.1f"|format(s.avg_vertical_oscillation_cm) }}cm{% else %}—{% endif %}</td>
+          <td>{% if s.avg_vertical_ratio %}{{ "%.1f"|format(s.avg_vertical_ratio) }}%{% else %}—{% endif %}</td>
+          <td>{% if s.avg_ground_contact_balance %}{{ "%.1f"|format(s.avg_ground_contact_balance) }}%L{% else %}—{% endif %}</td>
+          <td>{% if s.avg_step_speed_loss_pct %}{{ "%.1f"|format(s.avg_step_speed_loss_pct) }}%{% else %}—{% endif %}</td>
+          <td>{% if s.begin_potential_stamina and s.end_potential_stamina %}{{ "%.0f"|format(s.begin_potential_stamina) }}→{{ "%.0f"|format(s.end_potential_stamina) }}{% else %}—{% endif %}</td>
+          <td>{% if s.vo2_max %}{{ "%.0f"|format(s.vo2_max) }}{% else %}—{% endif %}</td>
+          <td>{% if s.avg_power_watts %}{{ "%.0f"|format(s.avg_power_watts) }}W{% else %}—{% endif %}</td>
+          <td>{% if s.training_load %}{{ "%.0f"|format(s.training_load) }}{% else %}—{% endif %}</td>
+          <td>{% if s.workout_feel %}{{ s.workout_feel }}{% else %}—{% endif %}</td>
+          <td>{% if s.workout_rpe %}{{ s.workout_rpe }}{% else %}—{% endif %}</td>
+          <td>{% if s.workout_compliance_score %}{{ s.workout_compliance_score }}{% else %}—{% endif %}</td>
+          <td>{{ s.total_steps or '—' }}</td>
+          <td>{% if s.body_battery_change %}{{ "%+d"|format(s.body_battery_change) }}{% else %}—{% endif %}</td>
+          <td>{% if s.fastest_split_1k_s %}{{ format_duration(s.fastest_split_1k_s | int) }}{% else %}—{% endif %}</td>
+          <td>{% if s.fastest_split_5k_s %}{{ format_duration(s.fastest_split_5k_s | int) }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.analysis-content h3 { color: #7c4dff; font-size: 1rem; margin-top: 1.2rem; margin-bottom: .4rem; font-weight: 600; }
+.analysis-content strong { color: #f0f6fc; }
+.analysis-content ul { padding-left: 1.2rem; }
+.analysis-content li { margin-bottom: .3rem; }
+.analysis-content p { margin-bottom: .8rem; }
+</style>
+{% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ activity_type | capitalize }} Trends{% endblock %}
+{% block page_title %}{{ activity_type | capitalize }}{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
@@ -9,7 +10,12 @@
     </ol>
 </nav>
 
-<h2 class="mb-4">📈 {{ activity_type | capitalize }} Trends</h2>
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h2 class="mb-0">📈 {{ activity_type | capitalize }} Trends</h2>
+  {% if activity_type == 'running' %}
+  <a href="/running/economy" class="btn btn-sm btn-outline-primary">🔬 Running Economy →</a>
+  {% endif %}
+</div>
 
 {% if sessions %}
 <div class="row g-4 mb-4">

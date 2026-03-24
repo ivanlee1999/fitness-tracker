@@ -1,47 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard · FitTrack{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">📊 Today's Summary <small class="text-muted">{{ today }}</small></h2>
+<div class="topbar">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="sub">{{ today }}</div>
+  </div>
+  <button id="sync-btn" class="btn btn-outline-secondary" onclick="syncGarmin()" style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;">
+    <span id="sync-icon">🔄</span> Sync Garmin
+  </button>
+</div>
+
+<!-- Mobile sync button (topbar is hidden on mobile) -->
+<div class="d-md-none mb-3">
+  <button id="sync-btn-mobile" class="btn btn-outline-secondary w-100" onclick="syncGarmin()" style="display:flex;align-items:center;justify-content:center;gap:.4rem;font-size:.82rem;">
+    <span id="sync-icon-mobile">🔄</span> Sync Garmin
+  </button>
+</div>
 
 <!-- Quick Stats -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="stat-value">{{ gym_count_week }}</div>
-            <div class="stat-label">Gym This Week</div>
-        </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-gym">
+      <div class="stat-label"><span>Gym this week</span><span>🏋️</span></div>
+      <div class="stat-value">{{ gym_count_week }}</div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="stat-value">{{ cardio_count_week }}</div>
-            <div class="stat-label">Cardio This Week</div>
-        </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-run">
+      <div class="stat-label"><span>Cardio this week</span><span>🏃</span></div>
+      <div class="stat-value">{{ cardio_count_week }}</div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            {% if todays_metrics and todays_metrics.steps %}
-                <div class="stat-value">{{ "{:,}".format(todays_metrics.steps) }}</div>
-            {% elif recent_metrics and recent_metrics.steps %}
-                <div class="stat-value">{{ "{:,}".format(recent_metrics.steps) }}</div>
-            {% else %}
-                <div class="stat-value">—</div>
-            {% endif %}
-            <div class="stat-label">Steps</div>
-        </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-neutral">
+      <div class="stat-label"><span>Steps</span><span>👟</span></div>
+      {% if todays_metrics and todays_metrics.steps %}
+        <div class="stat-value">{{ "{:,}".format(todays_metrics.steps) }}</div>
+      {% elif recent_metrics and recent_metrics.steps %}
+        <div class="stat-value">{{ "{:,}".format(recent_metrics.steps) }}</div>
+        <div class="stat-sub">as of latest sync</div>
+      {% else %}
+        <div class="stat-value">—</div>
+      {% endif %}
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            {% if todays_metrics and todays_metrics.body_battery_wake %}
-                <div class="stat-value">{{ todays_metrics.body_battery_wake }}</div>
-            {% elif recent_metrics and recent_metrics.body_battery_wake %}
-                <div class="stat-value">{{ recent_metrics.body_battery_wake }}</div>
-            {% else %}
-                <div class="stat-value">—</div>
-            {% endif %}
-            <div class="stat-label">Body Battery</div>
-        </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-recovery">
+      <div class="stat-label"><span>Body Battery</span><span>⚡</span></div>
+      {% if todays_metrics and todays_metrics.body_battery_wake %}
+        <div class="stat-value">{{ todays_metrics.body_battery_wake }}</div>
+      {% elif recent_metrics and recent_metrics.body_battery_wake %}
+        <div class="stat-value">{{ recent_metrics.body_battery_wake }}</div>
+        <div class="stat-sub">as of latest sync</div>
+      {% else %}
+        <div class="stat-value">—</div>
+      {% endif %}
     </div>
+  </div>
 </div>
 
 <div class="row g-4">
@@ -52,7 +70,7 @@
             <div class="card-body">
                 {% if last_gym %}
                     <h5>{{ last_gym.name }}</h5>
-                    <p class="text-muted mb-2">
+                    <p class="text-dim mb-2">
                         {{ last_gym.date }}
                         {% if last_gym.time %} at {{ last_gym.time }}{% endif %}
                         {% if last_gym.duration_min %} &middot; {{ last_gym.duration_min }} min{% endif %}
@@ -73,7 +91,7 @@
                                 <td>
                                     <a href="/gym/exercise/{{ ex.name | urlencode }}">{{ ex.name }}</a>
                                     {% if ex.muscle_groups %}
-                                        <br><small class="text-muted">{{ ex.muscle_groups }}</small>
+                                        <br><small class="text-dim">{{ ex.muscle_groups }}</small>
                                     {% endif %}
                                 </td>
                                 <td><small>{{ ex.sets_summary or '—' }}</small></td>
@@ -85,7 +103,7 @@
                         <a href="{{ last_gym.source_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">View on Motra →</a>
                     {% endif %}
                 {% else %}
-                    <p class="text-muted">No gym sessions logged yet.</p>
+                    <p class="text-dim">No gym sessions logged yet.</p>
                     <p>Import a workout with: <code>python scripts/import_gym.py workout.txt</code></p>
                 {% endif %}
             </div>
@@ -99,7 +117,7 @@
             <div class="card-body">
                 {% if last_cardio %}
                     <h5>{{ last_cardio.name or last_cardio.activity_type }}</h5>
-                    <p class="text-muted mb-2">
+                    <p class="text-dim mb-2">
                         {{ last_cardio.date }}
                         {% if last_cardio.time %} at {{ last_cardio.time }}{% endif %}
                     </p>
@@ -118,7 +136,7 @@
                         {% endif %}
                     </div>
                 {% else %}
-                    <p class="text-muted">No cardio sessions logged yet.</p>
+                    <p class="text-dim">No cardio sessions logged yet.</p>
                 {% endif %}
             </div>
         </div>
@@ -131,25 +149,104 @@
                     <div class="row text-center">
                         <div class="col-4">
                             <div class="fw-bold" style="color: var(--accent)">{{ m.resting_hr or '—' }}</div>
-                            <small class="text-muted">Resting HR</small>
+                            <small class="text-dim">Resting HR</small>
                         </div>
                         <div class="col-4">
                             <div class="fw-bold" style="color: var(--accent)">{{ m.hrv_ms or '—' }}</div>
-                            <small class="text-muted">HRV (ms)</small>
+                            <small class="text-dim">HRV (ms)</small>
                         </div>
                         <div class="col-4">
                             <div class="fw-bold" style="color: var(--accent)">{{ m.sleep_score or '—' }}</div>
-                            <small class="text-muted">Sleep Score</small>
+                            <small class="text-dim">Sleep Score</small>
                         </div>
                     </div>
                     {% if m.date != today %}
-                        <p class="text-muted mt-2 mb-0"><small>Latest data from {{ m.date }}</small></p>
+                        <p class="text-dim mt-2 mb-0"><small>Latest data from {{ m.date }}</small></p>
                     {% endif %}
                 {% else %}
-                    <p class="text-muted">No metrics imported yet.</p>
+                    <p class="text-dim">No metrics imported yet.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sync-spinning { display: inline-block; animation: spin 1s linear infinite; }
+  .sync-result {
+    font-size: .82rem; padding: .5rem .9rem; border-radius: 8px;
+    margin-top: .5rem; display: none;
+  }
+  .sync-result.success { background: hsl(163,72%,15%); color: var(--up); border: 1px solid hsl(163,72%,25%); }
+  .sync-result.error   { background: hsl(356,69%,15%); color: var(--down); border: 1px solid hsl(356,69%,25%); }
+</style>
+<script>
+async function syncGarmin() {
+  const btns = [document.getElementById('sync-btn'), document.getElementById('sync-btn-mobile')];
+  const icons = [document.getElementById('sync-icon'), document.getElementById('sync-icon-mobile')];
+
+  // Disable buttons, show spinner
+  btns.forEach(b => { if (b) { b.disabled = true; } });
+  icons.forEach(i => { if (i) { i.classList.add('sync-spinning'); } });
+
+  // Remove any previous result
+  document.querySelectorAll('.sync-result').forEach(el => el.remove());
+
+  try {
+    const resp = await fetch('/sync/garmin', { method: 'POST' });
+    const data = await resp.json();
+
+    let msg, cls;
+    if (data.errors && data.errors.length > 0) {
+      msg = '\u26a0\ufe0f ' + data.errors[0];
+      cls = 'error';
+    } else if (data.synced_activities === 0 && data.synced_daily === 0) {
+      msg = '\u2705 Already up to date';
+      cls = 'success';
+    } else {
+      const parts = [];
+      if (data.synced_activities > 0) parts.push(`${data.synced_activities} activit${data.synced_activities === 1 ? 'y' : 'ies'}`);
+      if (data.synced_daily > 0) parts.push(`${data.synced_daily} daily metric${data.synced_daily === 1 ? '' : 's'}`);
+      msg = '\u2705 Synced ' + parts.join(', ');
+      cls = 'success';
+    }
+
+    // Show result near both buttons
+    btns.forEach(b => {
+      if (b) {
+        // Remove any existing result div first
+    document.querySelectorAll('.sync-result').forEach(el => el.remove());
+    const div = document.createElement('div');
+        div.className = `sync-result ${cls}`;
+        div.textContent = msg;
+        div.style.display = 'block';
+        b.parentElement.appendChild(div);
+        setTimeout(() => div.remove(), 8000);
+      }
+    });
+
+    // If anything was synced, reload after a short delay so the dashboard updates
+    if (data.synced_activities > 0 || data.synced_daily > 0) {
+      setTimeout(() => location.reload(), 3000);
+    }
+  } catch (err) {
+    btns.forEach(b => {
+      if (b) {
+        const div = document.createElement('div');
+        div.className = 'sync-result error';
+        div.textContent = '\u274c Sync failed: ' + err.message;
+        div.style.display = 'block';
+        b.parentElement.appendChild(div);
+        setTimeout(() => div.remove(), 8000);
+      }
+    });
+  } finally {
+    btns.forEach(b => { if (b) { b.disabled = false; } });
+    icons.forEach(i => { if (i) { i.classList.remove('sync-spinning'); } });
+  }
+}
+</script>
 {% endblock %}

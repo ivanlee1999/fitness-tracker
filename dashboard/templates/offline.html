@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1e2130">
+  <title>FitTrack — Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    html, body { height: 100%; background: #1e2130; color: #ffffff; }
+    .container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 2rem; text-align: center;
+    }
+    .bolt {
+      font-size: 4rem; margin-bottom: 1.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .7; transform: scale(1.05); }
+    }
+    .brand {
+      font-size: 1.8rem; font-weight: 800; margin-bottom: .5rem;
+      letter-spacing: -.5px;
+    }
+    .brand span { color: hsl(163, 72%, 41%); }
+    .message {
+      font-size: 1.1rem; color: hsl(228, 20%, 72%); margin-bottom: 2rem;
+      max-width: 320px; line-height: 1.5;
+    }
+    .retry-btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: hsl(163, 72%, 41%); color: #000; border: none;
+      padding: .75rem 2rem; border-radius: 10px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: background .15s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .retry-btn:hover { background: hsl(163, 72%, 35%); }
+    .retry-btn:active { transform: scale(0.97); }
+    .sub {
+      margin-top: 2.5rem; font-size: .8rem; color: hsl(228, 20%, 50%);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="bolt">⚡</div>
+    <div class="brand"><span>Fit</span>Track</div>
+    <p class="message">You're offline. Check your connection and try again.</p>
+    <button class="retry-btn" onclick="window.location.reload()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+      </svg>
+      Retry
+    </button>
+    <p class="sub">Cached pages may still be available</p>
+  </div>
+</body>
+</html>

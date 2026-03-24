@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ name }}{% endblock %}
+{% block title %}{{ name }} · FitTrack{% endblock %}
+{% block page_title %}{{ name }}{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
@@ -16,7 +17,7 @@
 <div class="card mb-4">
     <div class="card-header">
         {% if is_assisted %}
-            Assist Weight Over Time <small class="text-muted">(lower = stronger)</small>
+            Assist Weight Over Time <small class="text-dim">(lower = stronger)</small>
         {% else %}
             Top Set Weight Over Time
         {% endif %}

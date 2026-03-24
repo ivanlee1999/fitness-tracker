@@ -1,0 +1,25 @@
+{
+  "name": "FitTrack",
+  "short_name": "FitTrack",
+  "description": "Personal fitness dashboard — gym, cardio, recovery",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1e2130",
+  "background_color": "#1e2130",
+  "icons": [
+    { "src": "/static/icons/icon-192.png",        "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-192.png",        "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/icons/icon-512.png",        "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png",        "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/icons/apple-touch-icon.png","sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "categories": ["health", "fitness"],
+  "shortcuts": [
+    { "name": "Today's Plan", "url": "/today", "description": "View today's workout plan" },
+    { "name": "Gym Sessions", "url": "/gym",   "description": "Gym session history" },
+    { "name": "Gym Stats",    "url": "/gym/stats", "description": "Gym statistics dashboard" },
+    { "name": "Recovery",     "url": "/recovery",  "description": "HRV, HR & sleep data" }
+  ]
+}

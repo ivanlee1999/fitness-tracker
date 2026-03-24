@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS cardio_sessions (
             'strength','other'
         )),
     duration_seconds            INTEGER,
+    moving_duration_seconds     INTEGER,
     distance_meters             REAL,
     calories                    INTEGER,
     avg_hr_bpm                  INTEGER,
@@ -75,8 +76,10 @@ CREATE TABLE IF NOT EXISTS cardio_sessions (
     elevation_gain_m            REAL,
     elevation_loss_m            REAL,
     avg_cadence                 REAL,
+    max_cadence                 REAL,
     avg_power_watts             REAL,
     normalized_power_watts      REAL,
+    total_work_kj               REAL,
     training_effect_aerobic     REAL,
     training_effect_anaerobic   REAL,
     training_effect_label       TEXT,
@@ -84,6 +87,37 @@ CREATE TABLE IF NOT EXISTS cardio_sessions (
     avg_stride_length_cm        REAL,
     avg_ground_contact_time_ms  REAL,
     avg_vertical_oscillation_cm REAL,
+    vo2_max                     REAL,
+    avg_vertical_ratio          REAL,
+    avg_ground_contact_balance  REAL,
+    avg_respiration_rate        REAL,
+    min_respiration_rate        REAL,
+    max_respiration_rate        REAL,
+    avg_grade_adjusted_speed_mps REAL,
+    avg_step_speed_loss_pct     REAL,
+    avg_step_speed_loss_mps     REAL,
+    begin_potential_stamina     REAL,
+    end_potential_stamina       REAL,
+    workout_feel                INTEGER,
+    workout_rpe                 INTEGER,
+    workout_compliance_score    REAL,
+    total_steps                 INTEGER,
+    avg_temperature_c           REAL,
+    impact_load                 REAL,
+    body_battery_change         INTEGER,
+    fastest_split_1k_s          REAL,
+    fastest_split_mile_s        REAL,
+    fastest_split_5k_s          REAL,
+    hr_zone1_s                  REAL,
+    hr_zone2_s                  REAL,
+    hr_zone3_s                  REAL,
+    hr_zone4_s                  REAL,
+    hr_zone5_s                  REAL,
+    power_zone1_s               REAL,
+    power_zone2_s               REAL,
+    power_zone3_s               REAL,
+    power_zone4_s               REAL,
+    power_zone5_s               REAL,
     garmin_activity_id          TEXT    UNIQUE,
     source_url                  TEXT,
     notes                       TEXT,
@@ -104,7 +138,12 @@ CREATE TABLE IF NOT EXISTS cardio_laps (
     avg_hr_bpm      INTEGER,
     avg_power_watts REAL,
     avg_cadence     REAL,
-    elevation_gain_m REAL
+    elevation_gain_m            REAL,
+    avg_stride_length_cm        REAL,
+    avg_ground_contact_time_ms  REAL,
+    avg_vertical_oscillation_cm REAL,
+    avg_vertical_ratio          REAL,
+    normalized_power_watts      REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_cardio_laps_session ON cardio_laps(session_id);
@@ -138,6 +177,21 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
     acute_load                  REAL,
     chronic_load                REAL,
     created_at                  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- AI ANALYSIS CACHE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS running_analyses (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_count       TEXT    NOT NULL,    -- '10', 'all', 'today'
+    latest_run_date TEXT    NOT NULL,
+    num_runs        INTEGER,
+    analysis_html   TEXT,
+    analysis_text   TEXT,
+    model           TEXT,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 -- ============================================================

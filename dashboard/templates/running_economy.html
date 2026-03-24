@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Running Economy{% endblock %}
+{% block page_title %}Run Economy{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/cardio">Cardio</a></li>
+    <li class="breadcrumb-item"><a href="/cardio/running">Running</a></li>
+    <li class="breadcrumb-item active">Running Economy</li>
+  </ol>
+</nav>
+
+<div class="d-flex align-items-center gap-3 mb-1">
+  <h2 class="mb-0">🏃 Running Economy</h2>
+  <a href="/running/analysis" class="btn btn-sm btn-outline-success ms-auto">🤖 AI Analysis →</a>
+</div>
+<p class="text-secondary mb-4">Cadence · Stride Length · Ground Contact · Vertical Oscillation · GAP · VO₂ Max</p>
+
+{% if not sessions %}
+<div class="card"><div class="card-body"><h4>No running sessions found</h4></div></div>
+{% else %}
+
+<!-- KPI row — latest run -->
+{% set last = sessions[-1] %}
+<div class="row g-3 mb-4">
+  {% set kpis = [
+    ("Cadence", last.avg_cadence | round(1) ~ " spm" if last.avg_cadence else "—", "Steps per minute (target 170–180)"),
+    ("Stride Length", (last.avg_stride_length_cm / 100) | round(2) ~ " m" if last.avg_stride_length_cm else "—", "Average stride length"),
+    ("GCT", last.avg_ground_contact_time_ms | round(0) ~ " ms" if last.avg_ground_contact_time_ms else "—", "Ground contact time (lower = better)"),
+    ("Vert Oscillation", last.avg_vertical_oscillation_cm | round(1) ~ " cm" if last.avg_vertical_oscillation_cm else "—", "Bounce (lower = better)"),
+    ("Vert Ratio", last.avg_vertical_ratio | round(1) ~ " %" if last.avg_vertical_ratio else "—", "Oscillation ÷ stride length (lower = better)"),
+    ("VO₂ Max", last.vo2_max | round(1) if last.vo2_max else "—", "Estimated VO₂ max"),
+    ("GAP Pace", format_pace(last.avg_grade_adjusted_speed_mps) if last.avg_grade_adjusted_speed_mps else "—", "Grade-adjusted pace"),
+    ("L/R Balance", last.avg_ground_contact_balance | round(1) ~ "% L" if last.avg_ground_contact_balance else "—", "Left-right ground contact balance"),
+    ("Speed Loss", last.avg_step_speed_loss_pct | round(1) ~ " %" if last.avg_step_speed_loss_pct else "—", "Step speed loss % — how much you decelerate between footstrikes (lower = better)"),
+  ] %}
+  {% for label, value, tip in kpis %}
+  <div class="col-6 col-md-3">
+    <div class="card h-100">
+      <div class="card-body py-3 px-3">
+        <div class="text-secondary small mb-1" title="{{ tip }}">{{ label }}</div>
+        <div class="fw-bold fs-5">{{ value }}</div>
+        <div class="text-dim" style="font-size:.7rem">{{ last.date }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Charts row 1: Cadence + Stride Length -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Cadence (spm)</div>
+      <div class="card-body"><div class="chart-container"><canvas id="cadenceChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Stride Length (m)</div>
+      <div class="card-body"><div class="chart-container"><canvas id="strideLenChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 2: GCT + Vertical Oscillation -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Ground Contact Time (ms) <span class="text-secondary fw-normal small">lower = better</span></div>
+      <div class="card-body"><div class="chart-container"><canvas id="gctChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Vertical Oscillation (cm) <span class="text-secondary fw-normal small">lower = better</span></div>
+      <div class="card-body"><div class="chart-container"><canvas id="vertOscChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 3: Speed + Vertical Ratio -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Pace vs Grade-Adjusted Pace</div>
+      <div class="card-body"><div class="chart-container"><canvas id="paceChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Vertical Ratio (%) <span class="text-secondary fw-normal small">lower = more efficient</span></div>
+      <div class="card-body"><div class="chart-container"><canvas id="vertRatioChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 4: VO2Max + Respiration -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">VO₂ Max</div>
+      <div class="card-body"><div class="chart-container"><canvas id="vo2Chart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Avg Respiration Rate (breaths/min)</div>
+      <div class="card-body"><div class="chart-container"><canvas id="respirChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 5: Speed Loss -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Step Speed Loss (%) <span class="text-secondary fw-normal small">lower = less deceleration between strides</span></div>
+      <div class="card-body"><div class="chart-container"><canvas id="speedLossChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">L/R Ground Contact Balance</div>
+      <div class="card-body"><div class="chart-container"><canvas id="balanceChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Sessions table -->
+<div class="card">
+  <div class="card-header">All Running Sessions</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th>Date</th><th>Name</th><th>Dist</th><th>Pace</th><th>Cadence</th>
+          <th>Stride</th><th>GCT</th><th>Vert Osc</th><th>V.Ratio</th><th>VO₂</th><th>HR</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in sessions | reverse %}
+        <tr>
+          <td>{{ s.date }}</td>
+          <td>{{ s.name or '—' }}</td>
+          <td>{% if s.distance_meters %}{{ "%.2f"|format(s.distance_meters/1000) }} km{% else %}—{% endif %}</td>
+          <td>{{ format_pace(s.avg_speed_mps) }}</td>
+          <td>{% if s.avg_cadence %}{{ "%.0f"|format(s.avg_cadence) }}{% else %}—{% endif %}</td>
+          <td>{% if s.avg_stride_length_cm %}{{ "%.2f"|format(s.avg_stride_length_cm/100) }} m{% else %}—{% endif %}</td>
+          <td>{% if s.avg_ground_contact_time_ms %}{{ "%.0f"|format(s.avg_ground_contact_time_ms) }} ms{% else %}—{% endif %}</td>
+          <td>{% if s.avg_vertical_oscillation_cm %}{{ "%.1f"|format(s.avg_vertical_oscillation_cm) }} cm{% else %}—{% endif %}</td>
+          <td>{% if s.avg_vertical_ratio %}{{ "%.1f"|format(s.avg_vertical_ratio) }}%{% else %}—{% endif %}</td>
+          <td>{% if s.vo2_max %}{{ "%.0f"|format(s.vo2_max) }}{% else %}—{% endif %}</td>
+          <td>{% if s.avg_step_speed_loss_pct %}{{ "%.1f"|format(s.avg_step_speed_loss_pct) }}%{% else %}—{% endif %}</td>
+          <td>{{ s.avg_hr_bpm or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if sessions %}
+<script>
+const sessions = {{ sessions_json | safe }};
+
+const labels   = sessions.map(s => s.date);
+const accent   = '#7c4dff';
+const green    = '#3fb950';
+const orange   = '#f0883e';
+const red      = '#f85149';
+const blue     = '#58a6ff';
+const purple   = '#bc8cff';
+const teal     = '#39d353';
+
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#8b949e' } } },
+  scales: {
+    x: { ticks: { color: '#8b949e', maxTicksLimit: 10 }, grid: { color: '#21262d' } },
+    y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }
+  }
+};
+
+function line(id, label, data, color, unit='', reversed=false) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const opts = JSON.parse(JSON.stringify(chartDefaults));
+  if (reversed) opts.scales.y.reverse = true;
+  if (unit) opts.scales.y.title = { display: true, text: unit, color: '#8b949e' };
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{ label, data, borderColor: color, backgroundColor: color+'22',
+                   tension: 0.3, fill: true, pointRadius: 4, pointHoverRadius: 6 }]
+    },
+    options: opts
+  });
+}
+
+// Pace chart (two datasets)
+(function() {
+  const paceData   = sessions.map(s => s.avg_speed_mps   ? +(1000/s.avg_speed_mps/60).toFixed(2)   : null);
+  const gapData    = sessions.map(s => s.avg_grade_adjusted_speed_mps ? +(1000/s.avg_grade_adjusted_speed_mps/60).toFixed(2) : null);
+  const opts = JSON.parse(JSON.stringify(chartDefaults));
+  opts.scales.y.reverse = true;
+  opts.scales.y.title = { display: true, text: 'min/km', color: '#8b949e' };
+  new Chart(document.getElementById('paceChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Pace (min/km)',     data: paceData, borderColor: accent, backgroundColor: accent+'22', tension: 0.3, fill: false, pointRadius: 4 },
+        { label: 'GAP (min/km)',      data: gapData,  borderColor: green,  backgroundColor: green+'22',  tension: 0.3, fill: false, pointRadius: 4, borderDash: [5,3] },
+      ]
+    },
+    options: opts
+  });
+})();
+
+line('cadenceChart',  'Cadence (spm)',    sessions.map(s=>s.avg_cadence),               accent, 'spm');
+line('strideLenChart','Stride Length (m)', sessions.map(s=>s.avg_stride_length_cm ? +(s.avg_stride_length_cm/100).toFixed(2) : null), green, 'm');
+line('gctChart',      'GCT (ms)',         sessions.map(s=>s.avg_ground_contact_time_ms), orange, 'ms');
+line('vertOscChart',  'Vert Oscillation', sessions.map(s=>s.avg_vertical_oscillation_cm), red, 'cm');
+line('vertRatioChart','Vertical Ratio',   sessions.map(s=>s.avg_vertical_ratio),          purple, '%');
+line('vo2Chart',      'VO₂ Max',          sessions.map(s=>s.vo2_max),                    blue, 'ml/kg/min');
+line('respirChart',   'Respiration Rate', sessions.map(s=>s.avg_respiration_rate),        teal, 'breaths/min');
+line('speedLossChart','Step Speed Loss %', sessions.map(s=>s.avg_step_speed_loss_pct),    orange, '%');
+
+// Balance chart — with 50% reference line
+(function() {
+  const opts = JSON.parse(JSON.stringify(chartDefaults));
+  opts.scales.y.min = 45; opts.scales.y.max = 55;
+  opts.scales.y.title = { display: true, text: '% left foot', color: '#8b949e' };
+  const balData = sessions.map(s => s.avg_ground_contact_balance);
+  new Chart(document.getElementById('balanceChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'L/R Balance (% left)', data: balData, borderColor: blue,
+          backgroundColor: blue+'22', tension: 0.3, fill: true, pointRadius: 4 },
+        { label: '50% target', data: labels.map(()=>50), borderColor: '#555',
+          borderDash: [6,3], pointRadius: 0, borderWidth: 1 },
+      ]
+    },
+    options: opts
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

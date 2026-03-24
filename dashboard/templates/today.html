@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Today's Plan · FitTrack{% endblock %}
+{% block page_title %}Today's Plan{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <h1>Today's Workout Plan</h1>
+    <div class="sub">{{ today_str }} · {{ today_dow }}</div>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    {% if cached %}
+      <span class="badge bg-success" style="font-size:.7rem">✓ cached · {{ generated_at }}</span>
+      <a href="/today?refresh=1" class="btn btn-ghost btn-sm">↻ Refresh</a>
+    {% else %}
+      <span class="badge bg-primary" style="font-size:.7rem">✨ just generated</span>
+    {% endif %}
+    <button id="garmin-sync-btn" onclick="syncToGarmin()" class="btn btn-sm"
+      style="background:hsl(37,97%,55%);color:#000;font-weight:700;border:none;min-width:160px">
+      ⌚ Sync to Garmin
+    </button>
+  </div>
+
+  <!-- Sync result toast -->
+  <div id="garmin-toast" style="display:none;position:fixed;bottom:calc(var(--bottom-bar) + var(--safe-bottom) + 1rem);left:1rem;right:1rem;z-index:500;
+    background:hsl(228,28%,22%);border:1px solid hsl(228,20%,32%);border-radius:12px;padding:1rem 1.2rem;
+    box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <div id="garmin-toast-msg" style="font-size:.9rem"></div>
+  </div>
+</div>
+
+<!-- Last 7 days summary cards -->
+<div class="section-title">Last 7 Days</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-gym">
+      <div class="stat-label"><span>Gym sessions</span><span>🏋️</span></div>
+      <div class="stat-value">{{ gym_sessions_count }}</div>
+      <div class="stat-sub">{{ gym_muscles_hit }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-run">
+      <div class="stat-label"><span>Runs</span><span>🏃</span></div>
+      <div class="stat-value">{{ run_count }}</div>
+      <div class="stat-sub">{{ run_km }} km total</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-ride">
+      <div class="stat-label"><span>Rides</span><span>🚴</span></div>
+      <div class="stat-value">{{ ride_count }}</div>
+      <div class="stat-sub">{{ ride_km }} km total</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bc-recovery">
+      <div class="stat-label"><span>Training load</span><span>⚡</span></div>
+      <div class="stat-value">{{ total_load | int }}</div>
+      <div class="stat-sub">last 7d combined</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Plan -->
+{% if plan %}
+<div class="row g-4">
+  <!-- Main plan -->
+  <div class="col-lg-8">
+    <div class="card" style="border-left: 4px solid hsl(163,72%,41%)">
+      <div class="card-header d-flex align-items-center gap-2">
+        <span>🤖 AI Workout Plan</span>
+        <span style="color:hsl(228,20%,60%);font-weight:400;font-size:.75rem;margin-left:auto">Claude's recommendation for today</span>
+      </div>
+      <div class="card-body">
+        <div class="plan-content" style="line-height:1.8;color:#fff">
+          {{ plan | safe }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context sidebar -->
+  <div class="col-lg-4">
+    <!-- Recent gym -->
+    <div class="card mb-3">
+      <div class="card-header">Recent Gym</div>
+      <div class="card-body p-0">
+        {% for s in recent_gym %}
+        <div style="padding:.7rem 1rem;border-bottom:1px solid hsl(228,20%,22%)">
+          <div style="font-size:.82rem;font-weight:600">{{ s.name[:40] }}</div>
+          <div style="font-size:.72rem;color:hsl(228,20%,70%)">{{ s.date }} · {{ s.muscles_clean }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Recent cardio -->
+    <div class="card mb-3">
+      <div class="card-header">Recent Cardio</div>
+      <div class="card-body p-0">
+        {% for s in recent_cardio %}
+        <div style="padding:.7rem 1rem;border-bottom:1px solid hsl(228,20%,22%)">
+          <div style="font-size:.82rem;font-weight:600">{{ s.name[:40] }}</div>
+          <div style="font-size:.72rem;color:hsl(228,20%,70%)">
+            {{ s.date }} · {{ s.activity_type }} ·
+            {% if s.distance_meters %}{{ "%.1f"|format(s.distance_meters/1000) }}km{% endif %}
+            {% if s.avg_hr_bpm %} · HR {{ s.avg_hr_bpm }}{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.plan-content h2,.plan-content h3 { color: hsl(163,72%,55%); font-size:1rem; font-weight:700; margin:1.2rem 0 .4rem; text-transform:uppercase; letter-spacing:.5px; }
+.plan-content h4 { color: hsl(37,97%,65%); font-size:.9rem; font-weight:700; margin:.9rem 0 .3rem; }
+.plan-content strong { color: #fff; }
+.plan-content ul,.plan-content ol { padding-left:1.3rem; }
+.plan-content li { margin-bottom:.3rem; font-size:.9rem; }
+.plan-content p { margin-bottom:.7rem; font-size:.9rem; }
+
+/* Desktop table */
+.plan-content table { width:100%; border-collapse:collapse; margin:.8rem 0; font-size:.85rem; }
+.plan-content th { color:hsl(228,20%,78%); font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; padding:.5rem .7rem; border-bottom:1px solid hsl(228,20%,25%); }
+.plan-content td { padding:.5rem .7rem; border-bottom:1px solid hsl(228,20%,18%); vertical-align:top; }
+.plan-content tr:hover td { background:hsl(228,20%,22%); }
+
+/* Mobile: convert table to cards */
+@media (max-width: 899px) {
+  .plan-content table thead { display: none; }
+  .plan-content table, .plan-content tbody, .plan-content tr, .plan-content td {
+    display: block; width: 100%;
+  }
+  .plan-content tr {
+    background: hsl(228,28%,20%);
+    border: 1px solid hsl(228,20%,28%);
+    border-radius: 10px;
+    margin-bottom: .6rem;
+    padding: .7rem .9rem;
+  }
+  .plan-content td {
+    padding: .15rem 0;
+    border-bottom: none;
+    font-size: .88rem;
+  }
+  /* Label each cell with the column name via data-label */
+  .plan-content td:nth-child(1)::before { content: "Exercise  "; font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:hsl(163,72%,50%); font-weight:700; display:block; margin-bottom:.1rem; }
+  .plan-content td:nth-child(2)::before { content: "Sets × Reps  "; font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:hsl(228,20%,65%); font-weight:700; display:block; margin-top:.4rem; }
+  .plan-content td:nth-child(3)::before { content: "Weight  "; font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:hsl(228,20%,65%); font-weight:700; display:block; margin-top:.4rem; }
+  .plan-content td:nth-child(4)::before { content: "Rest  "; font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:hsl(228,20%,65%); font-weight:700; display:block; margin-top:.4rem; }
+  .plan-content td:nth-child(5)::before { content: "Notes  "; font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:hsl(228,20%,65%); font-weight:700; display:block; margin-top:.4rem; }
+  /* First cell (exercise name) is bigger */
+  .plan-content td:nth-child(1) { font-size:1rem; font-weight:700; color:#fff; }
+
+  /* Warm-up text: convert inline list to bullets */
+  .plan-content p { font-size:.9rem; }
+}
+</style>
+
+<script>
+async function syncToGarmin() {
+  const btn = document.getElementById('garmin-sync-btn');
+  const toast = document.getElementById('garmin-toast');
+  const msg = document.getElementById('garmin-toast-msg');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Syncing...';
+
+  try {
+    const res = await fetch('/today/sync-garmin', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      btn.textContent = '✅ Synced!';
+      btn.style.background = 'hsl(163,72%,41%)';
+      msg.innerHTML = `<strong style="color:hsl(163,72%,55%)">✅ Uploaded to Garmin!</strong><br>
+        <span style="color:hsl(228,20%,78%)">${data.exercises} exercises as "<em>${data.workoutName}</em>".<br>
+        Open <strong>Garmin Connect → Workouts</strong> to start it on your watch.</span>`;
+    } else {
+      btn.disabled = false;
+      btn.textContent = '⌚ Sync to Garmin';
+      msg.innerHTML = `<strong style="color:hsl(356,69%,56%)">❌ Sync failed</strong><br>
+        <span style="color:hsl(228,20%,78%)">${data.error}</span>`;
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '⌚ Sync to Garmin';
+    msg.innerHTML = `<strong style="color:hsl(356,69%,56%)">❌ Error</strong><br>
+      <span style="color:hsl(228,20%,78%)">${e.message}</span>`;
+  }
+
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 8000);
+}
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Recovery{% endblock %}
+{% block title %}Recovery · FitTrack{% endblock %}
+{% block page_title %}Recovery{% endblock %}
 
 {% block content %}
 <h2 class="mb-4">💓 Recovery & Daily Metrics</h2>
@@ -113,7 +114,7 @@
 </div>
 
 {% else %}
-<div class="text-center py-5 text-muted">
+<div class="text-center py-5 text-dim">
     <h4>No daily metrics found</h4>
     <p>Import Garmin daily summaries with: <code>python scripts/import_daily_metrics.py metrics.json</code></p>
 </div>

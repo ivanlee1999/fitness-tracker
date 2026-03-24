@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Gym Stats · FitTrack{% endblock %}
+{% block page_title %}Gym Stats{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <h1>Gym Stats</h1>
+    <div class="sub">{{ total_sessions }} sessions · {{ date_range }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/gym" class="btn btn-ghost btn-sm">← Sessions</a>
+  </div>
+</div>
+
+<!-- ── Row 1: Radar + Frequency Heatmap ── -->
+<div class="row g-4 mb-4">
+
+  <!-- Radar: muscle group volume -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>Muscle Balance</span>
+        <div class="d-flex gap-1">
+          <button class="btn btn-ghost btn-sm radar-btn active" data-period="7">7d</button>
+          <button class="btn btn-ghost btn-sm radar-btn" data-period="30">30d</button>
+          <button class="btn btn-ghost btn-sm radar-btn" data-period="90">90d</button>
+          <button class="btn btn-ghost btn-sm radar-btn" data-period="365">All</button>
+        </div>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <div style="position:relative;width:100%;max-width:340px;height:300px;margin:auto">
+          <canvas id="radarChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workout frequency heatmap (GitHub-style) -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Workout Frequency — Last 52 Weeks</div>
+      <div class="card-body">
+        <div id="heatmap" style="overflow-x:auto"></div>
+        <div class="d-flex align-items-center gap-2 mt-2" style="font-size:.72rem;color:hsl(228,20%,70%)">
+          <span>Less</span>
+          <span class="hm-cell" style="background:hsl(228,20%,25%)"></span>
+          <span class="hm-cell" style="background:hsl(163,50%,25%)"></span>
+          <span class="hm-cell" style="background:hsl(163,60%,35%)"></span>
+          <span class="hm-cell" style="background:hsl(163,70%,45%)"></span>
+          <span class="hm-cell" style="background:hsl(163,72%,55%)"></span>
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 2: Weekly Volume + Consistency ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Weekly Volume (lb)</div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="weeklyVolChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Workouts / Week (last 12w)</div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="freqChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 3: PRs + Muscle Volume Bar ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">🏅 Personal Records</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Exercise</th><th>Best Set</th><th>Date</th></tr></thead>
+          <tbody>
+          {% for pr in prs %}
+          <tr>
+            <td><a href="/gym/exercise/{{ pr.name | urlencode }}">{{ pr.name }}</a></td>
+            <td><strong>{{ pr.weight_lb | int }} lb</strong> × {{ pr.reps }}</td>
+            <td style="color:hsl(228,20%,70%);font-size:.8rem">{{ pr.date }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Volume by Muscle Group (last 30d)</div>
+      <div class="card-body"><div class="chart-container" style="height:260px"><canvas id="muscleBarChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 4: Avg session duration + calories ── -->
+<div class="row g-3 mb-4">
+  {% set kpis = [
+    ("Avg Session", avg_duration ~ " min", "⏱", "bc-gym"),
+    ("Avg Volume/Session", "{:,.0f}".format(avg_volume) ~ " lb", "🏋️", "bc-neutral"),
+    ("Avg Calories/Session", avg_calories ~ " cal", "🔥", "bc-run"),
+    ("Longest Streak", longest_streak ~ " days", "🔥", "bc-ride"),
+    ("Total Volume", "{:,.0f}".format(total_volume) ~ " lb", "📦", "bc-recovery"),
+    ("Most Worked", top_muscle, "💪", "bc-gym"),
+  ] %}
+  {% for label, val, icon, cls in kpis %}
+  <div class="col-6 col-md-2">
+    <div class="stat-card {{ cls }}">
+      <div class="stat-label"><span>{{ label }}</span><span>{{ icon }}</span></div>
+      <div class="stat-value" style="font-size:1.5rem">{{ val }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const radarData   = {{ radar_data   | tojson }};
+const weeklyVol   = {{ weekly_vol   | tojson }};
+const weeklyFreq  = {{ weekly_freq  | tojson }};
+const muscleBar   = {{ muscle_bar   | tojson }};
+const heatmapData = {{ heatmap_data | tojson }};
+
+// ── Helpers ──
+const TEAL   = 'hsl(163,72%,41%)';
+const TEAL_A = 'hsl(163,72%,41%,0.15)';
+const AMBER  = 'hsl(37,97%,60%)';
+const PURPLE = 'hsl(270,70%,65%)';
+const BLUE   = 'hsl(208,92%,53%)';
+const MUTED  = 'hsl(228,20%,78%)';
+const GRID   = 'hsl(228,20%,22%)';
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: MUTED, font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: MUTED, maxTicksLimit: 12 }, grid: { color: GRID } },
+    y: { ticks: { color: MUTED }, grid: { color: GRID } }
+  }
+};
+
+// ── Radar ──
+const muscleGroups = ['Chest','Back','Shoulders','Arms','Core','Legs','Traps'];
+let radarChart;
+function buildRadar(period) {
+  const d = radarData[String(period)] || radarData['30'];
+  const vals = muscleGroups.map(m => d[m] || 0);
+  if (radarChart) radarChart.destroy();
+  radarChart = new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: muscleGroups,
+      datasets: [{
+        label: 'Sets',
+        data: vals,
+        borderColor: 'hsl(37,97%,60%)',
+        backgroundColor: 'hsl(37,97%,60%,0.18)',
+        borderWidth: 2,
+        pointBackgroundColor: 'hsl(37,97%,60%)',
+        pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          ticks: { color: MUTED, backdropColor: 'transparent', font: { size: 10 } },
+          grid: { color: GRID },
+          pointLabels: { color: '#ffffff', font: { size: 12, weight: '600' } },
+          angleLines: { color: GRID },
+        }
+      }
+    }
+  });
+}
+buildRadar(30);
+document.querySelectorAll('.radar-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.radar-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    buildRadar(parseInt(btn.dataset.period));  // String() conversion handled inside
+  });
+});
+
+// ── Weekly Volume ──
+new Chart(document.getElementById('weeklyVolChart'), {
+  type: 'bar',
+  data: {
+    labels: weeklyVol.map(d => d.week),
+    datasets: [{
+      label: 'Volume (lb)',
+      data: weeklyVol.map(d => d.vol),
+      backgroundColor: 'hsl(163,72%,35%,0.7)',
+      borderColor: TEAL,
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    ...baseOpts,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: MUTED, maxTicksLimit: 10, maxRotation: 45, font:{size:10} }, grid: { color: GRID } },
+      y: { ticks: { color: MUTED, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }, grid: { color: GRID } }
+    }
+  }
+});
+
+// ── Frequency ──
+new Chart(document.getElementById('freqChart'), {
+  type: 'bar',
+  data: {
+    labels: weeklyFreq.map(d => d.week),
+    datasets: [{
+      label: 'Workouts',
+      data: weeklyFreq.map(d => d.count),
+      backgroundColor: 'hsl(270,70%,55%,0.7)',
+      borderColor: PURPLE,
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    ...baseOpts,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: MUTED, maxRotation: 45, font: { size: 9 } }, grid: { color: GRID } },
+      y: { ticks: { color: MUTED, stepSize: 1 }, grid: { color: GRID }, min: 0 }
+    }
+  }
+});
+
+// ── Muscle bar ──
+new Chart(document.getElementById('muscleBarChart'), {
+  type: 'bar',
+  data: {
+    labels: muscleBar.map(d => d.muscle),
+    datasets: [{
+      label: 'Sets (last 30d)',
+      data: muscleBar.map(d => d.sets),
+      backgroundColor: [
+        'hsl(163,72%,38%,0.8)','hsl(208,92%,48%,0.8)','hsl(37,97%,55%,0.8)',
+        'hsl(270,70%,58%,0.8)','hsl(356,69%,50%,0.8)','hsl(120,45%,45%,0.8)',
+        'hsl(30,90%,50%,0.8)','hsl(200,70%,50%,0.8)','hsl(300,60%,55%,0.8)',
+      ],
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: MUTED }, grid: { color: GRID } },
+      y: { ticks: { color: '#ffffff', font: { size: 11 } }, grid: { color: GRID } }
+    }
+  }
+});
+
+// ── GitHub-style heatmap ──
+(function() {
+  const WEEKS = 53;
+  const DAYS  = 7;
+  const SIZE  = 13;
+  const GAP   = 3;
+  const DAY_LABELS = ['','M','','W','','F',''];
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build lookup: date string -> count
+  const lookup = {};
+  heatmapData.forEach(d => { lookup[d.date] = d.count; });
+
+  // Figure out start date (Sunday of 53 weeks ago)
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - (WEEKS * 7) + (7 - today.getDay()) % 7);
+
+  const svgW = WEEKS * (SIZE + GAP) + 30;
+  const svgH = DAYS * (SIZE + GAP) + 24;
+
+  let cells = '';
+  let monthMarks = {};
+
+  for (let w = 0; w < WEEKS; w++) {
+    for (let d = 0; d < DAYS; d++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + w * 7 + d);
+      if (date > today) continue;
+      const iso = date.toISOString().slice(0, 10);
+      const count = lookup[iso] || 0;
+      const x = w * (SIZE + GAP) + 28;
+      const y = d * (SIZE + GAP) + 16;
+      let fill;
+      if (count === 0)     fill = 'hsl(228,20%,22%)';
+      else if (count === 1) fill = 'hsl(163,50%,25%)';
+      else if (count === 2) fill = 'hsl(163,60%,35%)';
+      else if (count === 3) fill = 'hsl(163,70%,44%)';
+      else                  fill = 'hsl(163,72%,55%)';
+      cells += `<rect x="${x}" y="${y}" width="${SIZE}" height="${SIZE}" rx="2" fill="${fill}"><title>${iso}: ${count} workout${count!==1?'s':''}</title></rect>`;
+
+      // Month label on first day of month
+      if (date.getDate() === 1) {
+        monthMarks[w] = MONTH_LABELS[date.getMonth()];
+      }
+    }
+  }
+
+  // Day labels
+  let dayLabels = '';
+  DAY_LABELS.forEach((label, i) => {
+    if (label) dayLabels += `<text x="0" y="${i*(SIZE+GAP)+16+SIZE*0.75}" font-size="9" fill="hsl(228,20%,65%)">${label}</text>`;
+  });
+
+  // Month labels
+  let monthLabelsSvg = '';
+  Object.entries(monthMarks).forEach(([w, label]) => {
+    monthLabelsSvg += `<text x="${parseInt(w)*(SIZE+GAP)+28}" y="11" font-size="9" fill="hsl(228,20%,70%)">${label}</text>`;
+  });
+
+  const svg = `<svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" style="font-family:Inter">${dayLabels}${monthLabelsSvg}${cells}</svg>`;
+  document.getElementById('heatmap').innerHTML = svg;
+})();
+</script>
+
+<style>
+.hm-cell { display:inline-block; width:12px; height:12px; border-radius:2px; }
+.radar-btn.active { color:#fff; border-color:hsl(228,20%,50%); background:hsl(228,20%,28%); }
+</style>
+{% endblock %}
