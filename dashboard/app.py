@@ -964,6 +964,113 @@ def _enrich_gym(rows):
     return rows
 
 
+
+# Garmin exercise name → (category, exerciseName) for strength workout uploads
+_GARMIN_EXERCISE_MAP: dict[str, tuple[str, str]] = {
+    # Squats
+    "squat": ("SQUAT", "SQUAT"),
+    "back squat": ("SQUAT", "BARBELL_BACK_SQUAT"),
+    "barbell squat": ("SQUAT", "BARBELL_BACK_SQUAT"),
+    "barbell back squat": ("SQUAT", "BARBELL_BACK_SQUAT"),
+    "front squat": ("SQUAT", "BARBELL_FRONT_SQUAT"),
+    "goblet squat": ("SQUAT", "GOBLET_SQUAT"),
+    "leg press": ("LEG_PRESS", "LEG_PRESS"),
+    # Deadlifts
+    "deadlift": ("DEADLIFT", "BARBELL_DEADLIFT"),
+    "barbell deadlift": ("DEADLIFT", "BARBELL_DEADLIFT"),
+    "romanian deadlift": ("DEADLIFT", "ROMANIAN_DEADLIFT"),
+    "rdl": ("DEADLIFT", "ROMANIAN_DEADLIFT"),
+    "sumo deadlift": ("DEADLIFT", "SUMO_DEADLIFT"),
+    # Bench press
+    "bench press": ("BENCH_PRESS", "BARBELL_BENCH_PRESS"),
+    "barbell bench press": ("BENCH_PRESS", "BARBELL_BENCH_PRESS"),
+    "incline bench press": ("BENCH_PRESS", "BARBELL_INCLINE_BENCH_PRESS"),
+    "incline dumbbell press": ("BENCH_PRESS", "INCLINE_DUMBBELL_BENCH_PRESS"),
+    "dumbbell bench press": ("BENCH_PRESS", "DUMBBELL_BENCH_PRESS"),
+    "dumbbell press": ("BENCH_PRESS", "DUMBBELL_BENCH_PRESS"),
+    # Rows
+    "row": ("ROW", "BARBELL_ROW"),
+    "barbell row": ("ROW", "BARBELL_ROW"),
+    "bent-over row": ("ROW", "BARBELL_ROW"),
+    "bent over row": ("ROW", "BARBELL_ROW"),
+    "dumbbell row": ("ROW", "DUMBBELL_ROW"),
+    "seated cable row": ("ROW", "SEATED_CABLE_ROW"),
+    "cable row": ("ROW", "SEATED_CABLE_ROW"),
+    "face pull": ("ROW", "FACE_PULL"),
+    # Pull-ups / Lat pulldown
+    "pull-up": ("PULL_UP", "PULL_UP"),
+    "pull up": ("PULL_UP", "PULL_UP"),
+    "pullup": ("PULL_UP", "PULL_UP"),
+    "chin-up": ("PULL_UP", "CHIN_UP"),
+    "chin up": ("PULL_UP", "CHIN_UP"),
+    "lat pulldown": ("PULL_UP", "WIDE_GRIP_LAT_PULLDOWN"),
+    "lat pull-down": ("PULL_UP", "WIDE_GRIP_LAT_PULLDOWN"),
+    "wide grip lat pulldown": ("PULL_UP", "WIDE_GRIP_LAT_PULLDOWN"),
+    "close grip lat pulldown": ("PULL_UP", "CLOSE_GRIP_LAT_PULLDOWN"),
+    # Shoulder press
+    "shoulder press": ("SHOULDER_PRESS", "DUMBBELL_SHOULDER_PRESS"),
+    "overhead press": ("SHOULDER_PRESS", "BARBELL_OVERHEAD_PRESS"),
+    "ohp": ("SHOULDER_PRESS", "BARBELL_OVERHEAD_PRESS"),
+    "military press": ("SHOULDER_PRESS", "BARBELL_OVERHEAD_PRESS"),
+    "dumbbell shoulder press": ("SHOULDER_PRESS", "DUMBBELL_SHOULDER_PRESS"),
+    "arnold press": ("SHOULDER_PRESS", "ARNOLD_PRESS"),
+    # Lateral raise
+    "lateral raise": ("LATERAL_RAISE", "DUMBBELL_LATERAL_RAISE"),
+    "dumbbell lateral raise": ("LATERAL_RAISE", "DUMBBELL_LATERAL_RAISE"),
+    # Curls
+    "bicep curl": ("CURL", "BARBELL_CURL"),
+    "bicep curls": ("CURL", "BARBELL_CURL"),
+    "barbell curl": ("CURL", "BARBELL_CURL"),
+    "dumbbell curl": ("CURL", "DUMBBELL_CURL"),
+    "hammer curl": ("CURL", "HAMMER_CURL"),
+    "preacher curl": ("CURL", "BARBELL_PREACHER_CURL"),
+    # Triceps
+    "tricep pushdown": ("TRICEP_EXTENSION", "TRICEPS_PUSHDOWN"),
+    "triceps pushdown": ("TRICEP_EXTENSION", "TRICEPS_PUSHDOWN"),
+    "tricep extension": ("TRICEP_EXTENSION", "TRICEPS_EXTENSION"),
+    "skull crusher": ("TRICEP_EXTENSION", "LYING_BARBELL_TRICEPS_EXTENSION"),
+    "close grip bench press": ("BENCH_PRESS", "CLOSE_GRIP_BARBELL_BENCH_PRESS"),
+    # Lunges
+    "lunge": ("LUNGE", "WALKING_LUNGE"),
+    "walking lunge": ("LUNGE", "WALKING_LUNGE"),
+    "reverse lunge": ("LUNGE", "REVERSE_LUNGE"),
+    "split squat": ("LUNGE", "SPLIT_SQUAT"),
+    "bulgarian split squat": ("LUNGE", "BULGARIAN_SPLIT_SQUAT"),
+    # Core
+    "plank": ("PLANK", "PLANK"),
+    "crunch": ("CRUNCH", "CRUNCH"),
+    "sit-up": ("CRUNCH", "SIT_UP"),
+    "sit up": ("CRUNCH", "SIT_UP"),
+    "leg raise": ("LEG_RAISE", "HANGING_LEG_RAISE"),
+    # Calf
+    "calf raise": ("CALF_RAISE", "STANDING_CALF_RAISE"),
+    "standing calf raise": ("CALF_RAISE", "STANDING_CALF_RAISE"),
+    # Push / other
+    "push-up": ("PUSH_UP", "PUSH_UP"),
+    "push up": ("PUSH_UP", "PUSH_UP"),
+    "dip": ("PUSH_UP", "TRICEP_DIP"),
+    "cable flye": ("FLYE", "CABLE_CROSSOVER"),
+    "cable crossover": ("FLYE", "CABLE_CROSSOVER"),
+    "chest flye": ("FLYE", "DUMBBELL_FLYE"),
+    "hip thrust": ("HIP_RAISE", "BARBELL_HIP_THRUST"),
+    "glute bridge": ("HIP_RAISE", "GLUTE_BRIDGE"),
+    "leg curl": ("LEG_CURL", "LYING_LEG_CURL"),
+    "leg extension": ("LEG_EXTENSION", "LEG_EXTENSION"),
+}
+
+
+def _get_garmin_exercise(name: str) -> tuple[str | None, str | None]:
+    """Map an exercise name to Garmin (category, exerciseName). Case-insensitive, fuzzy."""
+    key = name.lower().strip("* ").strip()
+    # Exact match
+    if key in _GARMIN_EXERCISE_MAP:
+        return _GARMIN_EXERCISE_MAP[key]
+    # Partial match — find the first entry whose key is contained in the name
+    for map_key, val in _GARMIN_EXERCISE_MAP.items():
+        if map_key in key or key in map_key:
+            return val
+    return None, None
+
 def _parse_plan_to_garmin_workout(plan_text: str, workout_name: str) -> dict:
     """Parse AI plan markdown table into a Garmin workout JSON."""
     import re
@@ -1028,6 +1135,7 @@ def _parse_plan_to_garmin_workout(plan_text: str, workout_name: str) -> dict:
         child_id = 1
 
         # Work step
+        ex_category, ex_name = _get_garmin_exercise(exercise_name)
         work_step = {
             "type": "ExecutableStepDTO",
             "stepOrder": step_order + 1,
@@ -1037,6 +1145,8 @@ def _parse_plan_to_garmin_workout(plan_text: str, workout_name: str) -> dict:
             "endCondition": {"conditionTypeId": 10, "conditionTypeKey": "reps"},
             "endConditionValue": float(num_reps),
             "targetType": {"workoutTargetTypeId": 1, "workoutTargetTypeKey": "no.target"},
+            "category": ex_category,
+            "exerciseName": ex_name,
         }
         # Add weight if available
         if weight_kg:
