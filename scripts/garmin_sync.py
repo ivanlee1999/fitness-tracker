@@ -173,27 +173,24 @@ def _fetch_daily_metrics_for_date(garmin, date_str: str) -> dict | None:
     except Exception:
         pass
 
-    # Body battery
+    # User summary (body battery at wake, current body battery, active calories, stress)
     try:
-        bb_data = garmin.get_body_battery(date_str)
-        if bb_data and isinstance(bb_data, list) and len(bb_data) > 0:
-            # Body battery is a list of readings; get the first (wake) and last (sleep) values
-            charged = [p for p in bb_data if p.get("charged")]
-            drained = [p for p in bb_data if p.get("drained")]
-            if bb_data:
-                # Wake value = max (peak body battery, usually morning)
-                values = [p.get("bodyBatteryLevel", 0) for p in bb_data if p.get("bodyBatteryLevel")]
-                if values:
-                    metrics["bodyBatteryWake"] = max(values)
-                    has_data = True
-                # Sleep value = min from drained readings (overnight drain low point)
-                # Fall back to global min if no explicit drained readings
-                if drained:
-                    drained_values = [p.get("bodyBatteryLevel", 100) for p in drained if p.get("bodyBatteryLevel") is not None]
-                    if drained_values:
-                        metrics["bodyBatterySleep"] = min(drained_values)
-                elif values:
-                    metrics["bodyBatterySleep"] = min(values)
+        summary = garmin.get_user_summary(date_str)
+        if summary:
+            bb_wake = summary.get("bodyBatteryAtWakeTime")
+            if bb_wake is not None:
+                metrics["bodyBatteryWake"] = bb_wake
+                has_data = True
+            bb_current = summary.get("bodyBatteryMostRecentValue")
+            if bb_current is not None:
+                metrics["bodyBatterySleep"] = bb_current
+            active_cal = summary.get("activeKilocalories")
+            if active_cal is not None:
+                metrics["activeCalories"] = active_cal
+            avg_stress = summary.get("averageStressLevel")
+            if avg_stress is not None and avg_stress > 0:
+                metrics["stressAvg"] = avg_stress
+                has_data = True
     except Exception:
         pass
 
@@ -235,49 +232,50 @@ def _fetch_daily_metrics_for_date(garmin, date_str: str) -> dict | None:
     except Exception:
         pass
 
-    # Stress
-    try:
-        stress_data = garmin.get_stress_data(date_str)
-        if stress_data:
-            avg = stress_data.get("overallStressLevel")
-            if avg:
-                metrics["stressAvg"] = avg
-                has_data = True
-    except Exception:
-        pass
-
-    # Training readiness
+    # Training readiness (API returns a list; take first item)
     try:
         tr_data = garmin.get_training_readiness(date_str)
         if tr_data:
-            score = tr_data.get("score")
-            if score:
-                metrics["trainingReadinessScore"] = score
+            tr = tr_data[0] if isinstance(tr_data, list) else tr_data
+            if tr.get("score") is not None:
+                metrics["trainingReadinessScore"] = tr["score"]
                 has_data = True
-            level = tr_data.get("level")
-            if level:
-                metrics["trainingReadinessLevel"] = level.lower()
+            if tr.get("level"):
+                metrics["trainingReadinessLevel"] = tr["level"]
     except Exception:
         pass
 
-    # Training status
+    # Training status (VO2max, training status feedback, training load)
     try:
         ts_data = garmin.get_training_status(date_str)
         if ts_data:
-            status = ts_data.get("trainingStatus")
-            if status:
-                metrics["trainingStatus"] = status.lower()
-                has_data = True
-            vo2 = ts_data.get("vo2Max")
-            if vo2:
+            # VO2 Max — nested under mostRecentVO2Max.generic
+            vo2_section = ts_data.get("mostRecentVO2Max", {}).get("generic", {})
+            vo2 = vo2_section.get("vo2MaxPreciseValue") or vo2_section.get("vo2MaxValue")
+            if vo2 is not None:
                 metrics["vo2Max"] = vo2
-            # Load data
-            acute = ts_data.get("acuteLoad")
-            chronic = ts_data.get("chronicLoad")
-            if acute and chronic and chronic > 0:
-                metrics["acuteLoad"] = acute
-                metrics["chronicLoad"] = chronic
-                metrics["acwr"] = round(acute / chronic, 2)
+                has_data = True
+
+            # Training status & load — nested under mostRecentTrainingStatus.latestTrainingStatusData
+            ts_status = ts_data.get("mostRecentTrainingStatus", {})
+            latest_map = ts_status.get("latestTrainingStatusData", {})
+            # Get the primary device entry (first available)
+            ts_entry = next(iter(latest_map.values()), None) if latest_map else None
+            if ts_entry:
+                feedback = ts_entry.get("trainingStatusFeedbackPhrase")
+                if feedback:
+                    metrics["trainingStatus"] = feedback
+                acwr_dto = ts_entry.get("acuteTrainingLoadDTO", {})
+                if acwr_dto:
+                    acwr_val = acwr_dto.get("dailyAcuteChronicWorkloadRatio")
+                    if acwr_val is not None:
+                        metrics["acwr"] = acwr_val
+                    acute = acwr_dto.get("dailyTrainingLoadAcute")
+                    if acute is not None:
+                        metrics["acuteLoad"] = acute
+                    chronic = acwr_dto.get("dailyTrainingLoadChronic")
+                    if chronic is not None:
+                        metrics["chronicLoad"] = chronic
     except Exception:
         pass
 
