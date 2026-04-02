@@ -45,6 +45,8 @@ from import_daily_metrics import upsert_metrics
 
 from mcp.server.fastmcp import FastMCP
 
+VERSION = "1.0.0"
+
 mcp = FastMCP("fitness-tracker")
 
 # ── Garmin client (lazy, cached) ──────────────────────────────────
